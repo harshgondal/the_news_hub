@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI('AIzaSyAyzy9lzfkFt5td5JDb72RlGtgCF04LkTI');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Analyze sentiment of article
 export const analyzeSentiment = async (text) => {

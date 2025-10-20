@@ -1,6 +1,6 @@
 # 📰 News Aggregator App
 
-A full-stack news aggregation platform that fetches, categorizes, and displays news from multiple sources. Features AI-powered article analysis, upcoming events tracking, user authentication, and real-time interactions.
+A full-stack news aggregation platform that fetches, categorizes, and displays news from multiple sources. Features AI-powered article analysis, upcoming events tracking, user authentication, and automated updates.
 
 ---
 
@@ -26,7 +26,7 @@ Redis caching, automated cleanup, scheduled updates (5x/day), and graceful fallb
 ## 📦 Tech Stack
 
 **Frontend:** React, TypeScript, Vite, TailwindCSS, Framer Motion, Axios  
-**Backend:** Node.js, Express.js, MongoDB, Redis, JWT, Socket.IO  
+**Backend:** Node.js, Express.js, MongoDB, Redis, JWT, Node-Cron  
 **APIs:** NewsAPI, Ticketmaster, TheSportsDB, Google Gemini AI  
 
 ---
@@ -135,7 +135,7 @@ node server/scripts/clearEventCache.js
 ✅ Redis caching (20-500x faster)  
 ✅ Dark mode support  
 ✅ Responsive design  
-✅ Real-time updates  
+✅ Automated scheduled updates  
 
 ---
 

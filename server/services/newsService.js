@@ -194,7 +194,7 @@ const detectCategory = (title, description, content) => {
 
 // Fetch news using NewsAPI (alternative/backup method)
 export const fetchNewsFromAPI = async () => {
-  const apiKey = '3f3a4065f5a84bf2be1b35019dfc80a0';
+  const apiKey = process.env.NEWS_API_KEY;
   
   if (!apiKey) {
     console.log('NewsAPI key not configured, skipping API fetch');

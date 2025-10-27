@@ -53,13 +53,15 @@ const Profile: React.FC = () => {
     try {
       let response;
       
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
       if (selectedFile) {
         // Upload file
         const formData = new FormData();
         formData.append('avatar', selectedFile);
         
         response = await axios.post(
-          'http://localhost:5000/api/user/upload-avatar',
+          `${API_URL}/api/user/upload-avatar`,
           formData,
           {
             withCredentials: true,
@@ -71,7 +73,7 @@ const Profile: React.FC = () => {
       } else {
         // Update URL
         response = await axios.patch(
-          'http://localhost:5000/api/user/profile-picture',
+          `${API_URL}/api/user/profile-picture`,
           { avatar: avatarUrl.trim() },
           { withCredentials: true }
         );
@@ -271,7 +273,7 @@ const Profile: React.FC = () => {
               <div className="flex justify-center mb-6">
                 {previewUrl || avatarUrl ? (
                   <img
-                    src={previewUrl || (avatarUrl.startsWith('http') ? avatarUrl : `http://localhost:5000${avatarUrl}`)}
+                    src={previewUrl || (avatarUrl.startsWith('http') ? avatarUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${avatarUrl}`)}
                     alt="Preview"
                     className="h-32 w-32 rounded-full object-cover border-4 border-primary-500"
                     onError={(e) => {

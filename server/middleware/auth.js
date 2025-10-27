@@ -6,8 +6,10 @@ export const protect = async (req, res, next) => {
   try {
     // Get token from cookie
     const token = req.cookies.token;
-    // console.log('🍪 Cookie received:', token ? 'Yes' : 'No');
-    // console.log('🍪 All cookies:', req.cookies);
+    console.log('🍪 Cookie received:', token ? 'Yes' : 'No');
+    console.log('🍪 All cookies:', Object.keys(req.cookies).length > 0 ? Object.keys(req.cookies) : 'None');
+    console.log('🌍 Origin:', req.headers.origin);
+    console.log('🔒 Environment:', process.env.NODE_ENV);
 
     if (!token) {
       console.log('❌ No token in cookie');
@@ -19,7 +21,7 @@ export const protect = async (req, res, next) => {
 
     // Verify token
     const decoded = verifyToken(token);
-    // console.log('🔐 Token decoded:', decoded ? 'Valid' : 'Invalid');
+    console.log('🔐 Token decoded:', decoded ? 'Valid' : 'Invalid');
 
     if (!decoded) {
       // console.log('❌ Token verification failed');

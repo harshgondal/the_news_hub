@@ -198,25 +198,27 @@ const Dashboard: React.FC = () => {
           {/* Articles by Source */}
           <div className="card p-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              Articles by Source
+              Top News Sources
             </h2>
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={stats?.sourceStats || []}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ source, percent }: any) => `${source}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                  nameKey="source"
-                >
-                  {stats?.sourceStats?.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart 
+                data={stats?.sourceStats?.slice(0, 10) || []}
+                layout="vertical"
+                margin={{ left: 100 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis 
+                  type="number"
+                  stroke="#9ca3af"
+                  tick={{ fill: '#9ca3af' }}
+                />
+                <YAxis 
+                  type="category"
+                  dataKey="source" 
+                  stroke="#9ca3af"
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  width={90}
+                />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: '#1f2937', 
@@ -224,8 +226,14 @@ const Dashboard: React.FC = () => {
                     borderRadius: '8px',
                     color: '#fff'
                   }}
+                  formatter={(value: any) => [`${value} articles`, 'Count']}
                 />
-              </PieChart>
+                <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]}>
+                  {stats?.sourceStats?.slice(0, 10).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>

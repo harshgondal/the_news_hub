@@ -53,7 +53,8 @@ const Profile: React.FC = () => {
     try {
       let response;
       
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const isDevelopment = import.meta.env.MODE === 'development';
+      const API_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_URL;
       
       if (selectedFile) {
         // Upload file
@@ -273,7 +274,7 @@ const Profile: React.FC = () => {
               <div className="flex justify-center mb-6">
                 {previewUrl || avatarUrl ? (
                   <img
-                    src={previewUrl || (avatarUrl.startsWith('http') ? avatarUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${avatarUrl}`)}
+                    src={previewUrl || (avatarUrl.startsWith('http') ? avatarUrl : `${import.meta.env.MODE === 'development' ? 'http://localhost:5000' : import.meta.env.VITE_API_URL}${avatarUrl}`)}
                     alt="Preview"
                     className="h-32 w-32 rounded-full object-cover border-4 border-primary-500"
                     onError={(e) => {

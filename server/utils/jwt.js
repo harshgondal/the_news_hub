@@ -31,25 +31,30 @@ export const verifyToken = (token) => {
 
 // Set JWT cookie
 export const setTokenCookie = (res, token) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   const cookieOptions = {
     httpOnly: true,
-    secure: false, // Must be false for localhost HTTP
-    sameSite: 'lax', // Lax works for localhost cross-port
+    secure: isProduction, // true in production (HTTPS), false in development
+    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in production
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     path: '/'
-    // Don't set domain - let browser handle it automatically
   };
+  
   console.log('🍪 Setting cookie with options:', cookieOptions);
+  console.log('🍪 Environment:', process.env.NODE_ENV);
   console.log('🍪 Token length:', token.length);
   res.cookie('token', token, cookieOptions);
 };
 
 // Clear JWT cookie
 export const clearTokenCookie = (res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   res.cookie('token', '', {
     httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     expires: new Date(0),
     path: '/'
   });

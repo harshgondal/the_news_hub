@@ -79,7 +79,8 @@ const Signup = () => {
       }
 
       // Call API directly with FormData
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const isDevelopment = import.meta.env.MODE === 'development';
+      const API_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_URL;
       const response = await axios.post(
         `${API_URL}/api/auth/signup`,
         signupData,

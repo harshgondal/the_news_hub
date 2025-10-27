@@ -126,12 +126,15 @@ export const login = async (req, res) => {
     const token = generateToken(user._id, user.email);
 
     // Set cookie with extended expiry if remember me is checked
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     if (rememberMe) {
       res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        path: '/'
       });
     } else {
       setTokenCookie(res, token);

@@ -3,10 +3,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create Redis client
+// Create Redis client for Upstash
+const redisUrl = process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379';
+
+// Check if using Upstash (rediss:// protocol)
+const isUpstash = redisUrl.startsWith('rediss://');
+
 const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
+  url: redisUrl,
   socket: {
+    ...(isUpstash && {
+      tls: true,
+      rejectUnauthorized: true
+    }),
     reconnectStrategy: (retries) => {
       if (retries > 10) {
         console.error('❌ Redis: Too many reconnection attempts');

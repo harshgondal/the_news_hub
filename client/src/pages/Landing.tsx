@@ -252,7 +252,7 @@ const Landing = () => {
             Ready to Transform Your News Experience?
           </h2>
           <p className={`text-lg mb-8 max-w-2xl mx-auto ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Join thousands of readers who stay informed with AI-powered deep analysis
+            Join our growing community of readers and stay up to date with detailed insights and analysis.
           </p>
         </motion.div>
       </div>

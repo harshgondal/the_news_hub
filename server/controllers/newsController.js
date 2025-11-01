@@ -323,22 +323,11 @@ export const getStats = async (req, res) => {
       publishedAt: { $gte: oneDayAgo }
     });
     
-    // Trending topics (most common words in titles)
-    const trendingTopics = await Article.aggregate([
-      {
-        $project: {
-          words: { $split: ['$title', ' '] }
-        }
-      },
-      { $unwind: '$words' },
-      {
-        $match: {
-          words: { $not: { $in: ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be', 'been', 'being'] } }
-        }
-      },
+    // Trending topics by category (show real topics like technology, sports, etc.)
+    const trendingTopicsAgg = await Article.aggregate([
       {
         $group: {
-          _id: { $toLower: '$words' },
+          _id: '$category',
           count: { $sum: 1 }
         }
       },
@@ -363,9 +352,9 @@ export const getStats = async (req, res) => {
           date: stat._id,
           count: stat.count
         })),
-        trendingTopics: trendingTopics.map(topic => ({
-          topic: topic._id,
-          count: topic.count
+        trendingTopics: trendingTopicsAgg.map(stat => ({
+          topic: stat._id,
+          count: stat.count
         }))
       }
     });

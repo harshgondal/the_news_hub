@@ -1,5 +1,47 @@
 import Comment from '../models/Comment.js';
 import User from '../models/User.js';
+import { getIO } from '../config/socket.js';
+
+// Helper function to fetch all comments with replies for an article
+const fetchCommentsWithReplies = async (articleId, sort = 'latest') => {
+  // Build sort criteria
+  let sortCriteria = {};
+  if (sort === 'latest') {
+    sortCriteria = { createdAt: -1 };
+  } else if (sort === 'oldest') {
+    sortCriteria = { createdAt: 1 };
+  } else if (sort === 'top') {
+    sortCriteria = { likesCount: -1, createdAt: -1 };
+  }
+
+  // Get top-level comments (no parent)
+  const comments = await Comment.find({ 
+    articleId, 
+    parentId: null 
+  })
+    .sort(sortCriteria)
+    .populate('userId', 'name avatar')
+    .lean();
+
+  // Get all replies for these comments
+  const commentIds = comments.map(c => c._id);
+  const replies = await Comment.find({ 
+    parentId: { $in: commentIds } 
+  })
+    .sort({ createdAt: 1 })
+    .populate('userId', 'name avatar')
+    .lean();
+
+  // Organize replies under their parent comments
+  const commentsWithReplies = comments.map(comment => ({
+    ...comment,
+    replies: replies.filter(reply => 
+      reply.parentId.toString() === comment._id.toString()
+    )
+  }));
+
+  return commentsWithReplies;
+};
 
 // @desc    Get all comments for an article
 // @route   GET /api/comments/:articleId
@@ -19,36 +61,12 @@ export const getComments = async (req, res) => {
       sortCriteria = { likesCount: -1, createdAt: -1 };
     }
 
-    // Get top-level comments (no parent)
-    const comments = await Comment.find({ 
-      articleId, 
-      parentId: null 
-    })
-      .sort(sortCriteria)
-      .populate('userId', 'name avatar')
-      .lean();
-
-    // Get all replies for these comments
-    const commentIds = comments.map(c => c._id);
-    const replies = await Comment.find({ 
-      parentId: { $in: commentIds } 
-    })
-      .sort({ createdAt: 1 })
-      .populate('userId', 'name avatar')
-      .lean();
-
-    // Organize replies under their parent comments
-    const commentsWithReplies = comments.map(comment => ({
-      ...comment,
-      replies: replies.filter(reply => 
-        reply.parentId.toString() === comment._id.toString()
-      )
-    }));
+    const commentsWithReplies = await fetchCommentsWithReplies(articleId, sort);
 
     res.json({
       success: true,
       data: commentsWithReplies,
-      count: comments.length
+      count: commentsWithReplies.length
     });
   } catch (error) {
     console.error('Get comments error:', error);
@@ -128,6 +146,20 @@ export const createComment = async (req, res) => {
     // Populate user info
     await comment.populate('userId', 'name avatar');
 
+    // Emit WebSocket event to notify all clients
+    try {
+      const io = getIO();
+      // Fetch all comments with replies to send complete state
+      const allComments = await fetchCommentsWithReplies(articleId, 'latest');
+      io.to(`article-${articleId}`).emit('comment-created', {
+        articleId,
+        comments: allComments
+      });
+    } catch (socketError) {
+      // Don't fail the request if socket fails
+      console.error('Socket emit error:', socketError);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Comment posted successfully',
@@ -192,6 +224,20 @@ export const updateComment = async (req, res) => {
 
     await comment.populate('userId', 'name avatar');
 
+    // Emit WebSocket event to notify all clients
+    try {
+      const io = getIO();
+      // Fetch all comments with replies to send complete state
+      const allComments = await fetchCommentsWithReplies(comment.articleId, 'latest');
+      io.to(`article-${comment.articleId}`).emit('comment-updated', {
+        articleId: comment.articleId,
+        commentId: comment._id,
+        comments: allComments
+      });
+    } catch (socketError) {
+      console.error('Socket emit error:', socketError);
+    }
+
     res.json({
       success: true,
       message: 'Comment updated successfully',
@@ -239,11 +285,27 @@ export const deleteComment = async (req, res) => {
       });
     }
 
+    const articleId = comment.articleId;
+
     // Delete all replies to this comment
     await Comment.deleteMany({ parentId: commentId });
 
     // Delete the comment
     await Comment.findByIdAndDelete(commentId);
+
+    // Emit WebSocket event to notify all clients
+    try {
+      const io = getIO();
+      // Fetch all comments with replies to send complete state
+      const allComments = await fetchCommentsWithReplies(articleId, 'latest');
+      io.to(`article-${articleId}`).emit('comment-deleted', {
+        articleId,
+        commentId,
+        comments: allComments
+      });
+    } catch (socketError) {
+      console.error('Socket emit error:', socketError);
+    }
 
     res.json({
       success: true,
@@ -289,6 +351,19 @@ export const toggleLike = async (req, res) => {
     }
 
     await comment.save();
+
+    // Emit WebSocket event to notify all clients
+    try {
+      const io = getIO();
+      io.to(`article-${comment.articleId}`).emit('comment-liked', {
+        articleId: comment.articleId,
+        commentId: comment._id,
+        likesCount: comment.likesCount,
+        liked: likeIndex === -1
+      });
+    } catch (socketError) {
+      console.error('Socket emit error:', socketError);
+    }
 
     res.json({
       success: true,

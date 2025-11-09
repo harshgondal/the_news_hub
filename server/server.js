@@ -3,8 +3,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import cron from 'node-cron';
+import { createServer } from 'http';
 import connectDB from './config/db.js';
 import { connectRedis } from './config/redis.js';
+import { initializeSocket } from './config/socket.js';
 import newsRoutes from './routes/newsRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import authRoutes from './routes/authRoutes.js';
@@ -185,9 +187,16 @@ setTimeout(async () => {
   }
 }, 10000); // Wait 10 seconds after startup
 
+// Create HTTP server
+const server = createServer(app);
+
+// Initialize Socket.io
+initializeSocket(server);
+
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Socket.io initialized for real-time updates`);
 });

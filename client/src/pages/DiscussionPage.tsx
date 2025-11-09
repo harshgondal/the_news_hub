@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, ExternalLink, Calendar, TrendingUp, Clock, Loader2 } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 import { Article, Comment as CommentType } from '../types';
 import Comment from '../components/Comment';
@@ -20,21 +21,11 @@ const DiscussionPage: React.FC = () => {
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'top'>('latest');
+  const socketRef = useRef<Socket | null>(null);
+  const isFetchingRef = useRef(false);
 
-  useEffect(() => {
-    // If article not passed via state, fetch it
-    if (!article && articleId) {
-      fetchArticle();
-    } else {
-      setLoading(false);
-    }
-    
-    if (articleId) {
-      fetchComments();
-    }
-  }, [articleId, sortBy]);
-
-  const fetchArticle = async () => {
+  const fetchArticle = useCallback(async () => {
+    if (!articleId) return;
     try {
       setLoading(true);
       const response = await api.get(`/news/${articleId}`);
@@ -47,10 +38,15 @@ const DiscussionPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [articleId]);
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
+    if (!articleId) return;
+    // Prevent overlapping requests
+    if (isFetchingRef.current) return;
+    
     try {
+      isFetchingRef.current = true;
       setCommentsLoading(true);
       const response = await api.get(`/comments/${articleId}`, {
         params: { sort: sortBy }
@@ -62,8 +58,112 @@ const DiscussionPage: React.FC = () => {
       console.error('Error fetching comments:', err);
     } finally {
       setCommentsLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [articleId, sortBy]);
+
+  // Fetch article
+  useEffect(() => {
+    // If article not passed via state, fetch it
+    if (!article && articleId) {
+      fetchArticle();
+    } else {
+      setLoading(false);
+    }
+  }, [article, articleId, fetchArticle]);
+
+  // Fetch comments when articleId or sortBy changes
+  useEffect(() => {
+    if (articleId) {
+      fetchComments();
+    }
+  }, [articleId, sortBy, fetchComments]);
+
+  // Set up WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!articleId) return;
+
+    // Get server URL (same logic as axios config)
+    const isDevelopment = import.meta.env.MODE === 'development';
+    const SERVER_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_URL;
+
+    // Create socket connection
+    const socket = io(SERVER_URL, {
+      withCredentials: true,
+      transports: ['websocket', 'polling']
+    });
+
+    socketRef.current = socket;
+
+    // Join the article room
+    socket.emit('join-article', articleId);
+
+    // Listen for comment events
+    socket.on('comment-created', (data: { articleId: string; comments: CommentType[] }) => {
+      if (data.articleId === articleId) {
+        // Update comments with the new list from server
+        setComments(data.comments);
+      }
+    });
+
+    socket.on('comment-updated', (data: { articleId: string; commentId: string; comments: CommentType[] }) => {
+      if (data.articleId === articleId) {
+        setComments(data.comments);
+      }
+    });
+
+    socket.on('comment-deleted', (data: { articleId: string; commentId: string; comments: CommentType[] }) => {
+      if (data.articleId === articleId) {
+        setComments(data.comments);
+      }
+    });
+
+    socket.on('comment-liked', (data: { articleId: string; commentId: string; likesCount: number }) => {
+      if (data.articleId === articleId) {
+        // Update the specific comment's like count
+        setComments(prevComments => 
+          prevComments.map(comment => {
+            if (comment._id === data.commentId) {
+              return { ...comment, likesCount: data.likesCount };
+            }
+            // Also check replies
+            if (comment.replies) {
+              return {
+                ...comment,
+                replies: comment.replies.map(reply => 
+                  reply._id === data.commentId 
+                    ? { ...reply, likesCount: data.likesCount }
+                    : reply
+                )
+              };
+            }
+            return comment;
+          })
+        );
+      }
+    });
+
+    socket.on('connect', () => {
+      console.log('✅ WebSocket connected');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('❌ WebSocket disconnected');
+    });
+
+    socket.on('connect_error', (error: Error) => {
+      console.error('WebSocket connection error:', error);
+    });
+
+    // Cleanup function
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.emit('leave-article', articleId);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [articleId]);
 
   const handlePostComment = async (content: string) => {
     if (!user) {
@@ -77,9 +177,10 @@ const DiscussionPage: React.FC = () => {
         content
       });
 
-      if (response.data.success) {
-        // Add new comment to the top
-        setComments([response.data.data, ...comments]);
+      // WebSocket will automatically update comments for all users
+      // No need to manually refresh
+      if (!response.data.success) {
+        throw new Error('Failed to post comment');
       }
     } catch (err: any) {
       throw err;
@@ -99,9 +200,9 @@ const DiscussionPage: React.FC = () => {
         parentId
       });
 
-      if (response.data.success) {
-        // Refresh comments to show new reply
-        fetchComments();
+      // WebSocket will automatically update comments for all users
+      if (!response.data.success) {
+        throw new Error('Failed to post reply');
       }
     } catch (err: any) {
       throw err;
@@ -115,8 +216,7 @@ const DiscussionPage: React.FC = () => {
 
     try {
       await api.delete(`/comments/${commentId}`);
-      // Remove comment from state
-      setComments(comments.filter(c => c._id !== commentId));
+      // WebSocket will automatically update comments for all users
     } catch (err: any) {
       alert('Failed to delete comment');
       console.error('Error deleting comment:', err);
@@ -126,9 +226,9 @@ const DiscussionPage: React.FC = () => {
   const handleUpdate = async (commentId: string, content: string) => {
     try {
       const response = await api.put(`/comments/${commentId}`, { content });
-      if (response.data.success) {
-        // Update comment in state
-        fetchComments();
+      // WebSocket will automatically update comments for all users
+      if (!response.data.success) {
+        throw new Error('Failed to update comment');
       }
     } catch (err: any) {
       throw err;
